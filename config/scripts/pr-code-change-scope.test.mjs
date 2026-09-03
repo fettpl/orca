@@ -266,10 +266,23 @@ describe('per-job path classification', () => {
       'src/main/runtime/rpc/methods/structured-agent-session-hold.ts',
       'src/main/runtime/rpc/methods/structured-agent-session-schemas.ts',
       'src/main/runtime/rpc/methods/terminal.ts',
+      'src/main/runtime/rpc/methods/git.ts',
+      'src/main/runtime/rpc/methods/git-params.ts',
+      'src/main/runtime/orca-runtime-git.ts',
+      'src/main/runtime/runtime-git-command-surface.ts',
       'src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts'
     ]) {
       expectClassification([file], {
         'cross-version-wire': true,
+        package: true,
+        package_windows: true
+      })
+    }
+    for (const file of ['src/relay/git-handler.ts', 'src/relay/git-handler-registration.ts']) {
+      expectClassification([file], {
+        'cross-version-wire': true,
+        git_compatibility: true,
+        managed_hook_node18: true,
         package: true,
         package_windows: true
       })
