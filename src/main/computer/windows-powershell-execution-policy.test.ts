@@ -55,6 +55,12 @@ describe('isPowerShellExecutionPolicyBlocked', () => {
     ).toBe(true)
   })
 
+  it('does not treat a phrase-only execution policy mention as a policy block', () => {
+    expect(isPowerShellExecutionPolicyBlocked('execution policy configuration is invalid')).toBe(
+      false
+    )
+  })
+
   it('does not treat unrelated bridge errors as a policy block', () => {
     expect(isPowerShellExecutionPolicyBlocked("app 'Finder' has no on-screen window")).toBe(false)
     expect(isPowerShellExecutionPolicyBlocked('screenshot failed: payload cap')).toBe(false)

@@ -16,7 +16,12 @@ export function buildWindowsPowerShellFileArgs(
   ]
 }
 
+const POWERSHELL_POLICY_BLOCK_SIGNATURES = [
+  'running scripts is disabled',
+  'cannot run this script on the current system'
+] as const
+
 export function isPowerShellExecutionPolicyBlocked(text: string): boolean {
   const haystack = text.toLowerCase()
-  return haystack.includes('execution policy') || haystack.includes('running scripts is disabled')
+  return POWERSHELL_POLICY_BLOCK_SIGNATURES.some((signature) => haystack.includes(signature))
 }

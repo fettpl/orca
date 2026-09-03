@@ -111,6 +111,44 @@ describe('execBridge Windows PowerShell argv', () => {
     expect(secondArgs).not.toContain('-EncodedCommand')
   })
 
+  it('does not retry Bypass for a phrase-only execution policy failure', async () => {
+    execFileMock.mockImplementation((_command, _args, _options, callback) => {
+      const error = Object.assign(new Error('Command failed: powershell.exe'), { killed: false })
+      callback(error, '', 'execution policy configuration is invalid')
+      return mockChild()
+    })
+
+    await expect(
+      execBridge('windows', 'C:\\Orca\\runtime.ps1', 'C:\\tmp\\operation.json')
+    ).rejects.toBeTruthy()
+
+    expect(execFileMock).toHaveBeenCalledTimes(1)
+    const firstArgs = execFileMock.mock.calls[0]?.[1] as string[]
+    expect(firstArgs).toContain('RemoteSigned')
+    expect(firstArgs).not.toContain('Bypass')
+  })
+
+  it('rejects a killed 30s timeout as action_timeout and does not retry Bypass', async () => {
+    execFileMock.mockImplementation((_command, _args, _options, callback) => {
+      const error = Object.assign(new Error('Command failed: powershell.exe'), { killed: true })
+      callback(
+        error,
+        '',
+        'File C:\\Orca\\runtime.ps1 cannot be loaded because running scripts is disabled on this system.'
+      )
+      return mockChild()
+    })
+
+    await expect(
+      execBridge('windows', 'C:\\Orca\\runtime.ps1', 'C:\\tmp\\operation.json')
+    ).rejects.toMatchObject({ code: 'action_timeout' })
+
+    expect(execFileMock).toHaveBeenCalledTimes(1)
+    const firstArgs = execFileMock.mock.calls[0]?.[1] as string[]
+    expect(firstArgs).toContain('RemoteSigned')
+    expect(firstArgs).not.toContain('Bypass')
+  })
+
   it('does not retry a non-policy Windows failure', async () => {
     execFileMock.mockImplementation((_command, _args, _options, callback) => {
       const error = Object.assign(new Error("app 'Finder' has no on-screen window"), {
