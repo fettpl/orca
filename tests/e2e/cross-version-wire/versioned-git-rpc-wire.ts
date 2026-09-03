@@ -7,6 +7,7 @@ import {
 /**
  * Per-build Git RPC surface: method names and a dispatcher loaded from that
  * checkout, so "the old host does not register X" is a fact about a real release.
+ * Does not load orca-runtime-git; status payloads stay host-stubbed.
  */
 
 export const WORKING_TREE = 'working-tree' as const
