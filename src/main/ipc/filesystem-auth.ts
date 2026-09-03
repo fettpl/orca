@@ -1,6 +1,7 @@
-import { resolve, dirname, basename } from 'node:path'
+import { resolve, dirname, basename, isAbsolute, parse, relative } from 'node:path'
+import { homedir } from 'node:os'
 import { realpathSync } from 'node:fs'
-import { realpath } from 'node:fs/promises'
+import { lstat, realpath, stat } from 'node:fs/promises'
 import type { Store } from '../persistence'
 import { getAllowedRoots } from './filesystem-allowed-roots'
 import { isDescendantOrEqual, isENOENT, normalizeExistingPath } from './filesystem-path-containment'
@@ -41,6 +42,108 @@ export function authorizeExternalPath(targetPath: string): void {
     // Why: macOS canonicalizes /tmp to /private/tmp during read authorization.
     rememberAuthorizedExternalPath(realpathSync(resolvedTarget))
   } catch {}
+}
+
+function isSameResolvedPath(left: string, right: string): boolean {
+  return left === right || relative(left, right) === ''
+}
+
+function isDangerousExternalGrantRoot(targetPath: string): boolean {
+  const resolvedTarget = resolve(targetPath)
+  if (resolvedTarget === parse(resolvedTarget).root) {
+    return true
+  }
+  const home = resolve(homedir())
+  if (isSameResolvedPath(resolvedTarget, home)) {
+    return true
+  }
+  try {
+    return isSameResolvedPath(resolvedTarget, resolve(realpathSync(home)))
+  } catch {
+    return false
+  }
+}
+
+function resolveRendererGrantPath(targetPath: string): string {
+  if (typeof targetPath !== 'string' || targetPath.length === 0 || targetPath.includes('\0')) {
+    throw new Error(PATH_ACCESS_DENIED_MESSAGE)
+  }
+  if (!isAbsolute(targetPath)) {
+    throw new Error(PATH_ACCESS_DENIED_MESSAGE)
+  }
+  return resolve(targetPath)
+}
+
+async function denyRendererGrant(): Promise<never> {
+  throw new Error(PATH_ACCESS_DENIED_MESSAGE)
+}
+
+export async function grantExternalFileFromRenderer(targetPath: string): Promise<void> {
+  const resolvedTarget = resolveRendererGrantPath(targetPath)
+  let fileStats
+  try {
+    fileStats = await lstat(resolvedTarget)
+  } catch {
+    return denyRendererGrant()
+  }
+  if (fileStats.isDirectory() || isDangerousExternalGrantRoot(resolvedTarget)) {
+    return denyRendererGrant()
+  }
+  let canonicalTarget = resolvedTarget
+  try {
+    canonicalTarget = resolve(await realpath(resolvedTarget))
+  } catch {
+    return denyRendererGrant()
+  }
+  if (isDangerousExternalGrantRoot(canonicalTarget)) {
+    return denyRendererGrant()
+  }
+  if (fileStats.isSymbolicLink()) {
+    let followedStats
+    try {
+      followedStats = await stat(resolvedTarget)
+    } catch {
+      return denyRendererGrant()
+    }
+    if (followedStats.isDirectory()) {
+      return denyRendererGrant()
+    }
+  }
+  authorizeExternalPath(resolvedTarget)
+}
+
+export async function grantExternalDirectoryFromRenderer(targetPath: string): Promise<void> {
+  const resolvedTarget = resolveRendererGrantPath(targetPath)
+  let pathStats
+  try {
+    pathStats = await lstat(resolvedTarget)
+  } catch {
+    return denyRendererGrant()
+  }
+  let directoryPath = resolvedTarget
+  if (pathStats.isSymbolicLink()) {
+    try {
+      directoryPath = resolve(await realpath(resolvedTarget))
+    } catch {
+      return denyRendererGrant()
+    }
+  } else if (!pathStats.isDirectory()) {
+    return denyRendererGrant()
+  }
+  let directoryStats
+  try {
+    directoryStats = pathStats.isSymbolicLink() ? await lstat(directoryPath) : pathStats
+  } catch {
+    return denyRendererGrant()
+  }
+  if (
+    !directoryStats.isDirectory() ||
+    isDangerousExternalGrantRoot(resolvedTarget) ||
+    isDangerousExternalGrantRoot(directoryPath)
+  ) {
+    return denyRendererGrant()
+  }
+  authorizeExternalPath(resolvedTarget)
 }
 
 export function isPathAllowed(targetPath: string, store: Store): boolean {
