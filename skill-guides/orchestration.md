@@ -282,7 +282,7 @@ Do not release a worker because of a timeout, TUI idle state, heartbeat, status,
 orca worktree rm --force --worktree path:<worktreePath> --json
 ```
 
-Use `terminal.worktreePath` from `worker-show --dispatch <dispatch_id> --json` (or the start receipt's created_child path). `--force` does **not** force-delete the GitHub branch.
+Capture `<worktreePath>` **before** `worker-release` from the `worker-start` receipt's `created_child` effect (the path after `::` in `effects[].id`, or `residualResources` of kind `worktree`). After `worker-release`, `worker-show` returns `terminal: null` because `observation.exact` fails once the process incarnation no longer matches, so `terminal.worktreePath` is unavailable then. `--force` does **not** force-delete the GitHub branch.
 
 Fail closed — leave the worktree and report — when any of: `worker-release` did not complete successfully (`release_pending`, `release_unknown`, retained, error); the worker was reused for a follow-up Dispatch; the user asked to keep the workspace or recorded `worker-retain`; the terminal was user-taken-over; the start effect was `reused` / `--worktree current` / a pre-existing checkout (never delete the user's tree); unpushed local commits exist for **any** outcome (succeeded, failed, or STOP) — dirty `git status --porcelain`, `git rev-list --count @{upstream}..HEAD` nonzero, or no upstream / unknown comparison; or `worktree rm` errors (locked, unverifiable git). Do this before the next wait or end of turn.
 
