@@ -15,6 +15,7 @@ import {
   hasUnsupportedRevParsePathFormatEcho,
   isUnsupportedRevParsePathFormatError
 } from '../shared/git-worktree-command-capabilities'
+import type { GitWorktreeInfo } from '../shared/worktree/types'
 
 function isWindowsAbsolutePath(value: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\')
@@ -91,8 +92,8 @@ export class GitHandlerWorktreeOperations extends GitHandlerOperationContext {
 
   private async normalizeMainWorktreePath(
     repoPath: string,
-    worktrees: Record<string, unknown>[]
-  ): Promise<Record<string, unknown>[]> {
+    worktrees: GitWorktreeInfo[]
+  ): Promise<GitWorktreeInfo[]> {
     const mainIndex = worktrees.findIndex((worktree) => worktree.isMainWorktree === true)
     const mainWorktree = worktrees[mainIndex]
     const mainPath = typeof mainWorktree?.path === 'string' ? mainWorktree.path : ''

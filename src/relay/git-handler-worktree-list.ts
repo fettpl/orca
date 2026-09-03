@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises'
 import type { GitCapabilityCache } from '../shared/git-capability-cache'
+import type { GitWorktreeInfo } from '../shared/worktree/types'
 import type { GitExec } from './git-handler-ops'
 import { isUnsupportedWorktreeListZError, parseWorktreeList } from './git-handler-utils'
 
@@ -40,8 +41,8 @@ const PRUNABLE_EXISTENCE_PROBE_CONCURRENCY = 8
  *  harmless backstop. The relay owns the filesystem, so a plain stat is
  *  authoritative. */
 export async function annotatePrunableWorktreesByExistence(
-  worktrees: Record<string, unknown>[]
-): Promise<Record<string, unknown>[]> {
+  worktrees: GitWorktreeInfo[]
+): Promise<GitWorktreeInfo[]> {
   const annotated = [...worktrees]
   let nextIndex = 0
 
@@ -80,7 +81,7 @@ export async function annotatePrunableWorktreesByExistence(
   return annotated
 }
 
-function normalizeRelayWorktrees(worktrees: Record<string, unknown>[]): RelayWorktreeInfo[] {
+function normalizeRelayWorktrees(worktrees: GitWorktreeInfo[]): RelayWorktreeInfo[] {
   return worktrees
     .map((worktree) => ({
       path: typeof worktree.path === 'string' ? worktree.path : '',

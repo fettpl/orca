@@ -184,6 +184,42 @@ describe('getStatusOp', () => {
     })
   })
 
+  it('decodes a C-quoted unmerged path with spaces', async () => {
+    const git = vi.fn<GitExec>(async (args) => {
+      if (args.includes('status')) {
+        return {
+          stdout: 'u UU N... 100644 100644 100644 100644 aa bb cc "path with space.ts"\n',
+          stderr: ''
+        }
+      }
+      throw new Error(`Unexpected git command: ${args.join(' ')}`)
+    })
+
+    const result = await getStatusOp(git, streamGitFromCapture(git), {
+      worktreePath: tmpDir
+    })
+
+    expect(result.entries.map((entry) => entry.path)).toEqual(['path with space.ts'])
+  })
+
+  it('decodes an octal C-quoted unmerged path', async () => {
+    const git = vi.fn<GitExec>(async (args) => {
+      if (args.includes('status')) {
+        return {
+          stdout: 'u UU N... 100644 100644 100644 100644 aa bb cc "foo\\303\\251.ts"\n',
+          stderr: ''
+        }
+      }
+      throw new Error(`Unexpected git command: ${args.join(' ')}`)
+    })
+
+    const result = await getStatusOp(git, streamGitFromCapture(git), {
+      worktreePath: tmpDir
+    })
+
+    expect(result.entries.map((entry) => entry.path)).toEqual(['fooé.ts'])
+  })
+
   it('reuses unchanged line stats only for hinted safety reads', async () => {
     const statusOutput = `${buildBranchStatusOutput('head-1', '(detached)')}\n1 .M N... 100644 100644 100644 aaaa aaaa src/a.ts`
     const git = vi.fn<GitExec>(async (args) => {

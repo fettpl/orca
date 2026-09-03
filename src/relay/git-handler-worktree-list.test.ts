@@ -2,7 +2,20 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import type { GitWorktreeInfo } from '../shared/worktree/types'
 import { annotatePrunableWorktreesByExistence } from './git-handler-worktree-list'
+
+function listRow(
+  overrides: Partial<GitWorktreeInfo> & Pick<GitWorktreeInfo, 'path'>
+): GitWorktreeInfo {
+  return {
+    head: '',
+    branch: '',
+    isBare: false,
+    isMainWorktree: false,
+    ...overrides
+  }
+}
 
 const tempRoots: string[] = []
 
@@ -22,10 +35,10 @@ describe('annotatePrunableWorktreesByExistence', () => {
     const missingDir = path.join(liveDir, 'deleted-worktree')
 
     const annotated = await annotatePrunableWorktreesByExistence([
-      { path: liveDir, isMainWorktree: true },
-      { path: path.join(liveDir, 'also-missing-main'), isMainWorktree: true },
-      { path: liveDir, isMainWorktree: false },
-      { path: missingDir, isMainWorktree: false }
+      listRow({ path: liveDir, isMainWorktree: true }),
+      listRow({ path: path.join(liveDir, 'also-missing-main'), isMainWorktree: true }),
+      listRow({ path: liveDir }),
+      listRow({ path: missingDir })
     ])
 
     expect(annotated[0]?.prunable).toBeUndefined()
@@ -40,8 +53,8 @@ describe('annotatePrunableWorktreesByExistence', () => {
     const missingDir = path.join(liveDir, 'deleted-locked-worktree')
 
     const annotated = await annotatePrunableWorktreesByExistence([
-      { path: liveDir, isMainWorktree: true },
-      { path: missingDir, isMainWorktree: false, locked: true, lockReason: 'agent session' }
+      listRow({ path: liveDir, isMainWorktree: true }),
+      listRow({ path: missingDir, locked: true, lockReason: 'agent session' })
     ])
 
     expect(annotated[1]?.prunable).toBeUndefined()

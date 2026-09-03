@@ -184,7 +184,7 @@ export async function getStatusOp(
       if (record.type === 'entry') {
         entries.push(record.entry as Record<string, unknown>)
       } else {
-        const entry = parseUnmergedEntry(worktreePath, record.line)
+        const entry = await parseUnmergedEntry(worktreePath, record.line)
         if (entry) {
           entries.push(entry)
         }

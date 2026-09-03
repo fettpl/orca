@@ -74,6 +74,27 @@ describe('parseWorktreeList', () => {
       prunableReason: 'gitdir file points to non-existent location'
     })
   })
+
+  it('sets isSparse when porcelain includes the sparse line', () => {
+    expect(
+      parseWorktreeList(
+        'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree /sparse\nHEAD def\nbranch refs/heads/feature\nsparse\n'
+      )[1]
+    ).toMatchObject({
+      path: '/sparse',
+      isSparse: true
+    })
+  })
+
+  it('omits isSparse when porcelain has no sparse line', () => {
+    expect(parseWorktreeList('worktree /repo\nHEAD abc\nbranch refs/heads/main\n')[0]).toEqual({
+      path: '/repo',
+      head: 'abc',
+      branch: 'refs/heads/main',
+      isBare: false,
+      isMainWorktree: true
+    })
+  })
 })
 
 describe('isUnsupportedWorktreeListZError', () => {
