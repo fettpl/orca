@@ -15,9 +15,10 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'orca-skill-destination-test-'))
   roots.push(root)
   const home = join(root, 'home')
-  const worktree = join(root, 'worktree')
-  const folder = join(root, 'folder')
-  await Promise.all([mkdir(home), mkdir(worktree), mkdir(folder)])
+  const worktree = join(home, 'worktree')
+  const folder = join(home, 'folder')
+  await mkdir(home)
+  await Promise.all([mkdir(worktree), mkdir(folder)])
   return {
     home,
     worktree,
@@ -94,4 +95,23 @@ describe('resolveSkillInstallDestination', () => {
       )
     ).rejects.toThrow('skill-install-ssh-dispatch-required')
   })
+
+  it.each(['outside-home', 'home-itself'] as const)(
+    'rejects a workspace destination that is %s',
+    async (caseName) => {
+      const { authority, home } = await fixture()
+      const outside = join(home, '..', 'outside')
+      await mkdir(outside)
+      const workspacePath = caseName === 'home-itself' ? home : outside
+      await expect(
+        resolveSkillInstallDestination(
+          { scope: 'workspace', worktreeId: 'escaped' },
+          {
+            ...authority,
+            resolveWorktree: async (id) => (id === 'escaped' ? { id, path: workspacePath } : null)
+          }
+        )
+      ).rejects.toThrow('skill-install-destination-escape')
+    }
+  )
 })
