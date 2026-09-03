@@ -1,13 +1,13 @@
 // Cross-version coverage for desktop↔host Git RPCs: current code against a real
 // published release, in both skew directions, over one scripted status + mutation
-// journey. Method lists are read from each checkout — never "old side lacks X".
+// journey. Method lists and param schemas are read from each checkout — never
+// "old side lacks X". Status result shape is stubbed, so this is not dropped-field CI.
 
 import { execFileSync } from 'node:child_process'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { publishedFieldNames } from './published-field-shape'
 import { resolveBaselineReleaseRef } from './release-checkout'
 import {
   gitMethodNames,
@@ -68,6 +68,7 @@ async function createTrackedRepo(): Promise<string> {
 function gitRuntime(repo: string): unknown {
   return {
     getRuntimeId: () => 'cross-version-git-runtime',
+    // Same stub for every build: dispatcher can run. Not a field-shape oracle.
     getRuntimeGitStatus: async () => readStatus(repo),
     stageRuntimeGitPath: async (_worktree: string, filePath: string) => {
       git(repo, ['add', '--', filePath])
@@ -153,12 +154,12 @@ type JourneyRecord = {
   hostLabel: string
   clientLabel: string
   calls: { method: string; reply: RpcReply }[]
-  statusPayloads: Record<string, unknown>[]
 }
 
 function paramsFor(method: string, client: GitRpcWireBuild): Record<string, unknown> {
   if (method === 'git.status') {
     // Current client may send optional fields; an old host strips unknown keys (Rule 1).
+    // Old client omits newer keys; a newly required param fails old-client/new-host.
     return client.revision === WORKING_TREE
       ? { worktree: WORKTREE, includeLineStats: true }
       : { worktree: WORKTREE }
@@ -181,8 +182,7 @@ async function runJourney(args: {
   const record: JourneyRecord = {
     hostLabel: args.host.label,
     clientLabel: args.client.label,
-    calls: [],
-    statusPayloads: []
+    calls: []
   }
 
   const run = async (method: string): Promise<RpcReply> => {
@@ -204,19 +204,13 @@ async function runJourney(args: {
   }
 
   if (clientMethods.has('git.status')) {
-    const first = await run('git.status')
-    if (first.ok && first.result && typeof first.result === 'object') {
-      record.statusPayloads.push(first.result as Record<string, unknown>)
-    }
+    await run('git.status')
   }
 
   await writeFile(join(args.repo, TRACKED_FILE), MODIFIED_CONTENTS)
 
   if (clientMethods.has('git.status')) {
-    const dirty = await run('git.status')
-    if (dirty.ok && dirty.result && typeof dirty.result === 'object') {
-      record.statusPayloads.push(dirty.result as Record<string, unknown>)
-    }
+    await run('git.status')
   }
 
   if (clientMethods.has('git.stage')) {
@@ -274,13 +268,12 @@ describe('cross-version Git RPC journey', () => {
   )
 
   it(
-    'old client against old host completes the journey, and is the reference for an old host',
+    'old client against old host completes the journey',
     async () => {
       const repo = await createTrackedRepo()
       const record = await runJourney({ host: baseline, client: baseline, repo })
       expectJourneyRan(record, baseline)
-      expect(record.statusPayloads.length).toBeGreaterThan(0)
-      expect(publishedFieldNames(record.statusPayloads[0]!).length).toBeGreaterThan(1)
+      expect(record.calls.every((call) => call.reply.ok)).toBe(true)
     },
     SUITE_TIMEOUT_MS
   )
@@ -324,9 +317,6 @@ describe('cross-version Git RPC journey', () => {
       const oldClientMethods = new Set(gitMethodNames(baseline))
       expect(record.calls.map((call) => call.method)).toEqual(
         reference.calls.map((call) => call.method).filter((method) => oldClientMethods.has(method))
-      )
-      expect(record.statusPayloads[0]).toEqual(
-        expect.objectContaining({ entries: expect.any(Array) })
       )
     },
     SUITE_TIMEOUT_MS

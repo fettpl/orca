@@ -156,10 +156,14 @@ pnpm exec vitest run --config config/vitest.config.ts tests/e2e/cross-version-wi
 
 `tests/e2e/cross-version-wire/cross-version-git-rpc-wire.unit.test.ts` pairs the same two
 builds over `git.status`, `git.stage` when both register it, and one mutation (`git.discard`,
-or `git.commit` if discard is not on both). The Git RPC journey covers status + one mutation;
-the harness still does **not** cover the session-tab sync channel, legacy agent-session
-publications, file RPCs, mobile/E2EE framing, or the relay transport. A change on those paths
-still needs its own reasoning against the three rules above.
+or `git.commit` if discard is not on both). Method lists and param schemas come from each
+checkout, so a missing method or a required new field fails the job. It does **not** catch a
+dropped or renamed `git.status` result field: that payload is a host-side stub shared across
+builds, not each checkout's runtime git implementation (the terminal suite loads its codec
+that way; this one does not). The Git RPC journey covers status + one mutation; the harness
+still does **not** cover the session-tab sync channel, legacy agent-session publications,
+file RPCs, mobile/E2EE framing, or the relay transport. A change on those paths still needs
+its own reasoning against the three rules above.
 
 ## Worked example: `agentWait` on terminal and worker reads
 
