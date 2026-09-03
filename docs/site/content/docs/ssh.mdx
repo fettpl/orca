@@ -49,7 +49,7 @@ Remote worktrees show a chip with live SSH status — green connected, yellow re
 
 ## Sessions across app close
 
-Closing the desktop app no longer kills your remote PTY sessions. Remote terminal sessions are leased through the relay running on the remote host, so they survive Orca closing on your laptop. When you reopen the app and reconnect to the target, leased PTYs are restored to their tabs in the **attached** state, with their scrollback intact. A short grace period (5 minutes by default, configurable per target) gives the relay time to ride out a quick reconnect before tearing down detached sessions.
+Closing the desktop app no longer kills your remote PTY sessions. Remote terminal sessions are leased through the relay running on the remote host, so they survive Orca closing on your laptop. When you reopen the app and reconnect to the target, leased PTYs are restored to their tabs in the **attached** state, with their scrollback intact. By default, remote PTYs stay alive until you **Reset Relay** or **End Remote Terminals**. If **Keep terminals alive until reset** is unchecked, the timeout after disconnect is configurable from 60 seconds to 7 days (the form defaults to 24 hours) before the relay tears down detached sessions.
 
 ## Downloading remote files and folders
 
