@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, resolve } from 'node:path'
+import { isPathInsideOrEqual } from '../../shared/cross-platform-path'
 import type { DirEntry, FilesystemPathFlavor } from '../../shared/filesystem-entry-types'
 import { sortDirEntries } from '../../shared/file-name-sort'
 import { gitExecFileAsync } from '../git/runner'
@@ -12,7 +13,7 @@ function resolveServerBrowsePath(pathValue: string): string {
     throw new Error('Path cannot contain null bytes')
   }
   if (trimmed === '~') {
-    return homedir()
+    return resolve(homedir())
   }
   if (/^~[\\/]/.test(trimmed)) {
     return resolve(homedir(), trimmed.slice(2))
@@ -21,6 +22,13 @@ function resolveServerBrowsePath(pathValue: string): string {
     return resolve(trimmed)
   }
   return resolve(homedir(), trimmed)
+}
+
+function assertAllowedServerBrowsePath(dirPath: string): void {
+  if (isPathInsideOrEqual(resolve(homedir()), dirPath)) {
+    return
+  }
+  throw new Error('Directory browsing is limited to the home directory.')
 }
 
 export class RuntimeServerEnvironmentCommands {
@@ -33,6 +41,7 @@ export class RuntimeServerEnvironmentCommands {
       return listWindowsDrives()
     }
     const dirPath = resolveServerBrowsePath(pathValue)
+    assertAllowedServerBrowsePath(dirPath)
     const dirStat = await stat(dirPath)
     if (!dirStat.isDirectory()) {
       throw new Error(`${dirPath} is not a directory`)
