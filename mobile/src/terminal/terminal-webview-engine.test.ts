@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Script } from 'node:vm'
 import { parse } from 'acorn'
 import { describe, expect, it, vi } from 'vitest'
@@ -98,6 +99,18 @@ describe('terminal WebView bundled engine', () => {
 
   it('parses the bundled engine at the Chrome 74 syntax floor', () => {
     expect(() => parse(XTERM_ENGINE_JS, { ecmaVersion: 2019 })).not.toThrow()
+  })
+
+  it('records the desktop webgl atlas patch in the mobile lockfile', () => {
+    const lockfile = readFileSync(
+      join(fileURLToPath(new URL('../..', import.meta.url)), 'pnpm-lock.yaml'),
+      'utf8'
+    )
+    expect(lockfile).toMatch(/@xterm\/addon-webgl@0\.20\.0-beta\.299\(patch_hash=[0-9a-f]{64}\)/)
+  })
+
+  it('bundles the webgl GLSL fallback for an out-of-range texpage', () => {
+    expect(XTERM_ENGINE_JS).toContain('else { outColor = vec4(0.0, 0.0, 0.0, 0.0); }')
   })
 
   // Why: the context deliberately omits WeakRef (Chrome 84+) / structuredClone
@@ -259,5 +272,17 @@ describe('terminal WebView bundled engine', () => {
   it('answers native readiness probes from the live document', () => {
     expect(terminalHtmlSource).toContain("if (msg.type === 'ping')")
     expect(terminalHtmlSource).toContain("notify(scope, { type: 'pong', pingId: msg.id })")
+  })
+
+  it('records the desktop webgl atlas patch in the mobile lockfile', () => {
+    const lockfile = readFileSync(
+      join(fileURLToPath(new URL('../..', import.meta.url)), 'pnpm-lock.yaml'),
+      'utf8'
+    )
+    expect(lockfile).toMatch(/@xterm\/addon-webgl@0\.20\.0-beta\.299\(patch_hash=[0-9a-f]{64}\)/)
+  })
+
+  it('bundles the webgl GLSL fallback for an out-of-range texpage', () => {
+    expect(XTERM_ENGINE_JS).toContain('else { outColor = vec4(0.0, 0.0, 0.0, 0.0); }')
   })
 })
