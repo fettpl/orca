@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -62,6 +62,23 @@ describe('RuntimeServerEnvironmentCommands.browseDirectory', () => {
         return
       }
       await expect(commands.browseDirectory(tempRoot)).rejects.toThrow(
+        'Directory browsing is limited to the home directory.'
+      )
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a symlink from inside home that points outside home', async () => {
+    const outsideHome =
+      process.platform === 'win32' ? (process.env.SystemRoot ?? 'C:\\Windows') : '/etc'
+    expect(isPathInsideOrEqual(homedir(), outsideHome)).toBe(false)
+
+    const tempRoot = await mkdtemp(join(homedir(), 'orca-runtime-browse-link-'))
+    const linkPath = join(tempRoot, 'outside-link')
+    try {
+      await symlink(outsideHome, linkPath, process.platform === 'win32' ? 'junction' : 'dir')
+      await expect(commands.browseDirectory(linkPath)).rejects.toThrow(
         'Directory browsing is limited to the home directory.'
       )
     } finally {
