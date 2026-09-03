@@ -391,7 +391,13 @@ describe('skill management RPC', () => {
       { operationId: 'operation_1', name: 'example', destination: { scope: 'global' as const } },
       'removeSharedSkillInstallRequest'
     ],
-    ['skills.commitUpload', { uploadId: 'upload_1' }, 'commitSkillUpload']
+    ['skills.commitUpload', { uploadId: 'upload_1' }, 'commitSkillUpload'],
+    ['skills.beginUpload', { package: SKILL_INSTALL_REQUEST.package }, 'beginSkillUpload'],
+    [
+      'skills.uploadChunk',
+      { uploadId: 'upload_1', offset: 0, bytesBase64: '' },
+      'appendSkillUploadChunk'
+    ]
   ] as const)(
     'rejects paired callers to %s with the unsupported-environment code',
     async (methodName, params, runtimeMethod) => {

@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, resolve } from 'node:path'
 import { isPathInsideOrEqual } from '../../shared/cross-platform-path'
@@ -6,6 +6,8 @@ import type { DirEntry, FilesystemPathFlavor } from '../../shared/filesystem-ent
 import { sortDirEntries } from '../../shared/file-name-sort'
 import { gitExecFileAsync } from '../git/runner'
 import { isServerDriveListRequest, listWindowsDrives } from './windows-drive-listing'
+
+const SERVER_BROWSE_HOME_BOUND_ERROR = 'Directory browsing is limited to the home directory.'
 
 function resolveServerBrowsePath(pathValue: string): string {
   const trimmed = pathValue.trim() || '~'
@@ -24,11 +26,21 @@ function resolveServerBrowsePath(pathValue: string): string {
   return resolve(homedir(), trimmed)
 }
 
-function assertAllowedServerBrowsePath(dirPath: string): void {
-  if (isPathInsideOrEqual(resolve(homedir()), dirPath)) {
-    return
+async function resolveAllowedServerBrowsePath(dirPath: string): Promise<string> {
+  const realHome = await realpath(homedir())
+  let realDir: string
+  try {
+    realDir = await realpath(dirPath)
+  } catch (error) {
+    if (!isPathInsideOrEqual(realHome, dirPath)) {
+      throw new Error(SERVER_BROWSE_HOME_BOUND_ERROR)
+    }
+    throw error
   }
-  throw new Error('Directory browsing is limited to the home directory.')
+  if (isPathInsideOrEqual(realHome, realDir)) {
+    return realDir
+  }
+  throw new Error(SERVER_BROWSE_HOME_BOUND_ERROR)
 }
 
 export class RuntimeServerEnvironmentCommands {
@@ -40,8 +52,7 @@ export class RuntimeServerEnvironmentCommands {
     if (isServerDriveListRequest(pathValue)) {
       return listWindowsDrives()
     }
-    const dirPath = resolveServerBrowsePath(pathValue)
-    assertAllowedServerBrowsePath(dirPath)
+    const dirPath = await resolveAllowedServerBrowsePath(resolveServerBrowsePath(pathValue))
     const dirStat = await stat(dirPath)
     if (!dirStat.isDirectory()) {
       throw new Error(`${dirPath} is not a directory`)

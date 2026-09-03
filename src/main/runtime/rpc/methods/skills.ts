@@ -187,12 +187,18 @@ export const SKILL_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'skills.beginUpload',
     params: SkillUploadBeginRequestSchema,
-    handler: (params, { runtime }) => runtime.beginSkillUpload(params)
+    handler: (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Uploading skills')
+      return runtime.beginSkillUpload(params)
+    }
   }),
   defineMethod({
     name: 'skills.uploadChunk',
     params: SkillUploadChunkRequestSchema,
-    handler: (params, { runtime }) => runtime.appendSkillUploadChunk(params)
+    handler: (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Uploading skills')
+      return runtime.appendSkillUploadChunk(params)
+    }
   }),
   defineMethod({
     name: 'skills.commitUpload',
