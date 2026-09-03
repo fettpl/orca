@@ -44,24 +44,33 @@ export function authorizeExternalPath(targetPath: string): void {
   } catch {}
 }
 
+function canonicalGrantPath(targetPath: string): string {
+  const resolvedTarget = resolve(targetPath)
+  try {
+    return resolve(realpathSync(resolvedTarget))
+  } catch {
+    return resolvedTarget
+  }
+}
+
 function isSameResolvedPath(left: string, right: string): boolean {
-  return left === right || relative(left, right) === ''
+  if (left === right || relative(left, right) === '') {
+    return true
+  }
+  if (process.platform !== 'darwin' && process.platform !== 'win32') {
+    return false
+  }
+  const leftKey = left.toLowerCase()
+  const rightKey = right.toLowerCase()
+  return leftKey === rightKey || relative(leftKey, rightKey) === ''
 }
 
 function isDangerousExternalGrantRoot(targetPath: string): boolean {
-  const resolvedTarget = resolve(targetPath)
-  if (resolvedTarget === parse(resolvedTarget).root) {
+  const canonicalTarget = canonicalGrantPath(targetPath)
+  if (isSameResolvedPath(canonicalTarget, resolve(parse(canonicalTarget).root))) {
     return true
   }
-  const home = resolve(homedir())
-  if (isSameResolvedPath(resolvedTarget, home)) {
-    return true
-  }
-  try {
-    return isSameResolvedPath(resolvedTarget, resolve(realpathSync(home)))
-  } catch {
-    return false
-  }
+  return isSameResolvedPath(canonicalTarget, canonicalGrantPath(homedir()))
 }
 
 function resolveRendererGrantPath(targetPath: string): string {
@@ -83,10 +92,16 @@ export async function grantExternalFileFromRenderer(targetPath: string): Promise
   let fileStats
   try {
     fileStats = await lstat(resolvedTarget)
-  } catch {
+  } catch (error) {
+    if (isENOENT(error)) {
+      throw new Error(`File not found: ${resolvedTarget}`)
+    }
     return denyRendererGrant()
   }
-  if (fileStats.isDirectory() || isDangerousExternalGrantRoot(resolvedTarget)) {
+  if (fileStats.isDirectory()) {
+    throw new Error(`Cannot open a directory: ${resolvedTarget}`)
+  }
+  if (isDangerousExternalGrantRoot(resolvedTarget)) {
     return denyRendererGrant()
   }
   let canonicalTarget = resolvedTarget
@@ -102,11 +117,14 @@ export async function grantExternalFileFromRenderer(targetPath: string): Promise
     let followedStats
     try {
       followedStats = await stat(resolvedTarget)
-    } catch {
+    } catch (error) {
+      if (isENOENT(error)) {
+        throw new Error(`File not found: ${resolvedTarget}`)
+      }
       return denyRendererGrant()
     }
     if (followedStats.isDirectory()) {
-      return denyRendererGrant()
+      throw new Error(`Cannot open a directory: ${resolvedTarget}`)
     }
   }
   authorizeExternalPath(resolvedTarget)
