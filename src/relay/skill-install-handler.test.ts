@@ -376,14 +376,15 @@ describe('SkillInstallHandler', () => {
   it('rejects a matching workspace id whose client path is outside home', async () => {
     const { archive, bytes, call, home, root } = await fixture()
     const outside = await initGitWorktree(join(root, 'outside'))
+    const worktreeId = `repo::${outside}`
 
     await expect(
       installStagedSkill(
         call,
         archive,
         bytes,
-        { scope: 'workspace', worktreeId: 'worktree_1' },
-        { kind: 'worktree', id: 'worktree_1', path: outside }
+        { scope: 'workspace', worktreeId },
+        { kind: 'worktree', id: worktreeId, path: outside }
       )
     ).rejects.toMatchObject({
       code: 'skill_install_failure',
@@ -405,14 +406,15 @@ describe('SkillInstallHandler', () => {
   it('rejects installing when the client path is the relay home', async () => {
     const { archive, bytes, call, home } = await fixture()
     execFileSync('git', ['init', '-q'], { cwd: home, stdio: 'pipe' })
+    const worktreeId = `repo::${home}`
 
     await expect(
       installStagedSkill(
         call,
         archive,
         bytes,
-        { scope: 'workspace', worktreeId: 'worktree_home' },
-        { kind: 'worktree', id: 'worktree_home', path: home }
+        { scope: 'workspace', worktreeId },
+        { kind: 'worktree', id: worktreeId, path: home }
       )
     ).rejects.toMatchObject({
       code: 'skill_install_failure',
@@ -427,14 +429,15 @@ describe('SkillInstallHandler', () => {
     const { archive, bytes, call, home } = await fixture()
     const sshDir = join(home, '.ssh')
     await mkdir(sshDir)
+    const worktreeId = `repo::${sshDir}`
 
     await expect(
       installStagedSkill(
         call,
         archive,
         bytes,
-        { scope: 'workspace', worktreeId: 'worktree_1' },
-        { kind: 'worktree', id: 'worktree_1', path: sshDir }
+        { scope: 'workspace', worktreeId },
+        { kind: 'worktree', id: worktreeId, path: sshDir }
       )
     ).rejects.toMatchObject({
       code: 'skill_install_failure',
@@ -453,13 +456,14 @@ describe('SkillInstallHandler', () => {
   it('installs into a listed git worktree under home', async () => {
     const { archive, bytes, call, home } = await fixture()
     const worktree = await initGitWorktree(join(home, 'repo'))
+    const worktreeId = `repo::${worktree}`
 
     const result = (await installStagedSkill(
       call,
       archive,
       bytes,
-      { scope: 'workspace', worktreeId: 'worktree_1' },
-      { kind: 'worktree', id: 'worktree_1', path: worktree }
+      { scope: 'workspace', worktreeId },
+      { kind: 'worktree', id: worktreeId, path: worktree }
     )) as { status: string }
 
     expect(result.status).toBe('installed')
@@ -487,6 +491,49 @@ describe('SkillInstallHandler', () => {
     ).toContain('# Relay')
     await expect(
       readFile(join(outside, '.agents', 'skills', 'relay-skill', 'SKILL.md'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('installs into a folder workspace under home without listing it as a git worktree', async () => {
+    const { archive, bytes, call, home } = await fixture()
+    const folder = join(home, 'notes')
+    await mkdir(folder)
+    const folderId = '123e4567-e89b-12d3-a456-426614174000'
+
+    const result = (await installStagedSkill(
+      call,
+      archive,
+      bytes,
+      { scope: 'workspace', folderWorkspaceId: folderId },
+      { kind: 'folder', id: folderId, path: folder }
+    )) as { status: string }
+
+    expect(result.status).toBe('installed')
+    expect(
+      await readFile(join(folder, '.agents', 'skills', 'relay-skill', 'SKILL.md'), 'utf8')
+    ).toContain('# Relay')
+  })
+
+  it('rejects a folder workspace whose host path is outside home', async () => {
+    const { archive, bytes, call, root } = await fixture()
+    const folder = join(root, 'outside-folder')
+    await mkdir(folder)
+    const folderId = '123e4567-e89b-12d3-a456-426614174000'
+
+    await expect(
+      installStagedSkill(
+        call,
+        archive,
+        bytes,
+        { scope: 'workspace', folderWorkspaceId: folderId },
+        { kind: 'folder', id: folderId, path: folder }
+      )
+    ).rejects.toMatchObject({
+      code: 'skill_install_failure',
+      data: { category: 'admission', code: 'skill-install-destination-escape' }
+    })
+    await expect(
+      readFile(join(folder, '.agents', 'skills', 'relay-skill', 'SKILL.md'))
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 })

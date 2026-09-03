@@ -206,21 +206,22 @@ export class SkillInstallHandler {
     })
   }
 
-  // Caller `path` is ignored; host git-worktree lookup wins.
+  // Worktree ids: host git-worktree list. Folder ids are UUIDs — use the host folder path, not git.
   private authority(workspace?: SkillSshWorkspaceAuthority): SkillInstallDestinationAuthority {
-    const resolveHost = async (kind: SkillSshWorkspaceAuthority['kind'], id: string) => {
-      if (workspace?.kind !== kind || workspace.id !== id) {
-        return null
-      }
-      const candidate = splitWorktreeIdForFilesystem(id)?.worktreePath ?? workspace.path
-      const path = await listedWorktreePath(candidate)
-      return path ? { id, path } : null
-    }
     return {
       environmentId: SSH_SKILL_ENVIRONMENT_ID,
       homeDirectory: this.homeDirectory,
-      resolveWorktree: (id) => resolveHost('worktree', id),
-      resolveFolderWorkspace: (id) => resolveHost('folder', id)
+      mustContainInHome: true,
+      resolveWorktree: async (id) => {
+        if (workspace?.kind !== 'worktree' || workspace.id !== id) {
+          return null
+        }
+        const candidate = splitWorktreeIdForFilesystem(id)?.worktreePath
+        const path = candidate ? await listedWorktreePath(candidate) : null
+        return path ? { id, path } : null
+      },
+      resolveFolderWorkspace: async (id) =>
+        workspace?.kind === 'folder' && workspace.id === id ? { id, path: workspace.path } : null
     }
   }
 

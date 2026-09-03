@@ -108,10 +108,25 @@ describe('resolveSkillInstallDestination', () => {
           { scope: 'workspace', worktreeId: 'escaped' },
           {
             ...authority,
+            mustContainInHome: true,
             resolveWorktree: async (id) => (id === 'escaped' ? { id, path: workspacePath } : null)
           }
         )
       ).rejects.toThrow('skill-install-destination-escape')
     }
   )
+
+  it('accepts a trusted local worktree outside home', async () => {
+    const { authority, home } = await fixture()
+    const outside = join(home, '..', 'srv')
+    await mkdir(outside)
+    const result = await resolveSkillInstallDestination(
+      { scope: 'workspace', worktreeId: 'local_srv' },
+      {
+        ...authority,
+        resolveWorktree: async (id) => (id === 'local_srv' ? { id, path: outside } : null)
+      }
+    )
+    expect(result.workspaceDirectory).toBe(await realpath(outside))
+  })
 })
