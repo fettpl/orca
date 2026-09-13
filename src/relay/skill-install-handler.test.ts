@@ -373,29 +373,23 @@ describe('SkillInstallHandler', () => {
     })
   })
 
-  it('rejects a matching workspace id whose client path is outside home', async () => {
+  it('installs into a listed git worktree outside home', async () => {
     const { archive, bytes, call, home, root } = await fixture()
     const outside = await initGitWorktree(join(root, 'outside'))
     const worktreeId = `repo::${outside}`
 
-    await expect(
-      installStagedSkill(
-        call,
-        archive,
-        bytes,
-        { scope: 'workspace', worktreeId },
-        { kind: 'worktree', id: worktreeId, path: outside }
-      )
-    ).rejects.toMatchObject({
-      code: 'skill_install_failure',
-      data: {
-        category: 'admission',
-        code: expect.stringMatching(/workspace-not-found|destination-escape/)
-      }
-    })
-    await expect(
-      readFile(join(outside, '.agents', 'skills', 'relay-skill', 'SKILL.md'))
-    ).rejects.toMatchObject({ code: 'ENOENT' })
+    const result = (await installStagedSkill(
+      call,
+      archive,
+      bytes,
+      { scope: 'workspace', worktreeId },
+      { kind: 'worktree', id: worktreeId, path: outside }
+    )) as { status: string }
+
+    expect(result.status).toBe('installed')
+    expect(
+      await readFile(join(outside, '.agents', 'skills', 'relay-skill', 'SKILL.md'), 'utf8')
+    ).toContain('# Relay')
     await expect(
       readFile(join(home, '.agents', 'skills', 'relay-skill', 'SKILL.md'))
     ).rejects.toMatchObject({
@@ -403,7 +397,7 @@ describe('SkillInstallHandler', () => {
     })
   })
 
-  it('rejects installing when the client path is the relay home', async () => {
+  it('rejects installing when the listed worktree is the relay home', async () => {
     const { archive, bytes, call, home } = await fixture()
     execFileSync('git', ['init', '-q'], { cwd: home, stdio: 'pipe' })
     const worktreeId = `repo::${home}`
@@ -420,7 +414,7 @@ describe('SkillInstallHandler', () => {
       code: 'skill_install_failure',
       data: {
         category: 'admission',
-        code: expect.stringMatching(/workspace-not-found|destination-escape/)
+        code: 'skill-install-destination-escape'
       }
     })
   })
@@ -494,27 +488,30 @@ describe('SkillInstallHandler', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('installs into a folder workspace under home without listing it as a git worktree', async () => {
+  it('refuses SSH folder installs because the relay cannot prove folder identity', async () => {
     const { archive, bytes, call, home } = await fixture()
     const folder = join(home, 'notes')
     await mkdir(folder)
     const folderId = '123e4567-e89b-12d3-a456-426614174000'
 
-    const result = (await installStagedSkill(
-      call,
-      archive,
-      bytes,
-      { scope: 'workspace', folderWorkspaceId: folderId },
-      { kind: 'folder', id: folderId, path: folder }
-    )) as { status: string }
-
-    expect(result.status).toBe('installed')
-    expect(
-      await readFile(join(folder, '.agents', 'skills', 'relay-skill', 'SKILL.md'), 'utf8')
-    ).toContain('# Relay')
+    await expect(
+      installStagedSkill(
+        call,
+        archive,
+        bytes,
+        { scope: 'workspace', folderWorkspaceId: folderId },
+        { kind: 'folder', id: folderId, path: folder }
+      )
+    ).rejects.toMatchObject({
+      code: 'skill_install_failure',
+      data: { category: 'admission', code: 'skill-install-workspace-not-found' }
+    })
+    await expect(
+      readFile(join(folder, '.agents', 'skills', 'relay-skill', 'SKILL.md'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('rejects a folder workspace whose host path is outside home', async () => {
+  it('refuses an SSH folder install even when the caller path is outside home', async () => {
     const { archive, bytes, call, root } = await fixture()
     const folder = join(root, 'outside-folder')
     await mkdir(folder)
@@ -530,7 +527,7 @@ describe('SkillInstallHandler', () => {
       )
     ).rejects.toMatchObject({
       code: 'skill_install_failure',
-      data: { category: 'admission', code: 'skill-install-destination-escape' }
+      data: { category: 'admission', code: 'skill-install-workspace-not-found' }
     })
     await expect(
       readFile(join(folder, '.agents', 'skills', 'relay-skill', 'SKILL.md'))

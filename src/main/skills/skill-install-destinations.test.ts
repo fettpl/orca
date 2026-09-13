@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, parse } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SkillInstallRequest } from '../../shared/skill-install-contract'
 import { resolveSkillInstallDestination } from './skill-install-destinations'
@@ -96,25 +96,45 @@ describe('resolveSkillInstallDestination', () => {
     ).rejects.toThrow('skill-install-ssh-dispatch-required')
   })
 
-  it.each(['outside-home', 'home-itself'] as const)(
-    'rejects a workspace destination that is %s',
-    async (caseName) => {
-      const { authority, home } = await fixture()
-      const outside = join(home, '..', 'outside')
-      await mkdir(outside)
-      const workspacePath = caseName === 'home-itself' ? home : outside
-      await expect(
-        resolveSkillInstallDestination(
-          { scope: 'workspace', worktreeId: 'escaped' },
-          {
-            ...authority,
-            mustContainInHome: true,
-            resolveWorktree: async (id) => (id === 'escaped' ? { id, path: workspacePath } : null)
-          }
-        )
-      ).rejects.toThrow('skill-install-destination-escape')
-    }
-  )
+  it('rejects a workspace that is the home directory itself', async () => {
+    const { authority, home } = await fixture()
+    await expect(
+      resolveSkillInstallDestination(
+        { scope: 'workspace', worktreeId: 'home_wt' },
+        {
+          ...authority,
+          resolveWorktree: async (id) => (id === 'home_wt' ? { id, path: home } : null)
+        }
+      )
+    ).rejects.toThrow('skill-install-destination-escape')
+  })
+
+  it('rejects a workspace that is a filesystem root', async () => {
+    const { authority, home } = await fixture()
+    await expect(
+      resolveSkillInstallDestination(
+        { scope: 'workspace', worktreeId: 'root_wt' },
+        {
+          ...authority,
+          resolveWorktree: async (id) => (id === 'root_wt' ? { id, path: parse(home).root } : null)
+        }
+      )
+    ).rejects.toThrow('skill-install-destination-escape')
+  })
+
+  it('rejects a workspace that is an ancestor of home', async () => {
+    const { authority, home } = await fixture()
+    const ancestor = join(home, '..')
+    await expect(
+      resolveSkillInstallDestination(
+        { scope: 'workspace', worktreeId: 'ancestor_wt' },
+        {
+          ...authority,
+          resolveWorktree: async (id) => (id === 'ancestor_wt' ? { id, path: ancestor } : null)
+        }
+      )
+    ).rejects.toThrow('skill-install-destination-escape')
+  })
 
   it('accepts a trusted local worktree outside home', async () => {
     const { authority, home } = await fixture()
