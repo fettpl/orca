@@ -206,12 +206,12 @@ export class SkillInstallHandler {
     })
   }
 
-  // Worktree ids: host git-worktree list. Folder ids are UUIDs — use the host folder path, not git.
+  // Worktree ids encode the path; listedWorktreePath is the host proof, not the id.
+  // Folder ids are client UUIDs — the relay has no folder registry, so fail closed (TM-04).
   private authority(workspace?: SkillSshWorkspaceAuthority): SkillInstallDestinationAuthority {
     return {
       environmentId: SSH_SKILL_ENVIRONMENT_ID,
       homeDirectory: this.homeDirectory,
-      mustContainInHome: true,
       resolveWorktree: async (id) => {
         if (workspace?.kind !== 'worktree' || workspace.id !== id) {
           return null
@@ -220,8 +220,7 @@ export class SkillInstallHandler {
         const path = candidate ? await listedWorktreePath(candidate) : null
         return path ? { id, path } : null
       },
-      resolveFolderWorkspace: async (id) =>
-        workspace?.kind === 'folder' && workspace.id === id ? { id, path: workspace.path } : null
+      resolveFolderWorkspace: async () => null
     }
   }
 

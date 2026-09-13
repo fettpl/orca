@@ -42,8 +42,4 @@ describe('createSkillInstallAuthority', () => {
 
     await expect(authority.resolveWorktree(WORKTREE_ID)).resolves.toBeNull()
   })
-
-  it('does not require a local managed worktree to live under the process home', () => {
-    expect(createSkillInstallAuthority(createHost()).mustContainInHome).toBeUndefined()
-  })
 })

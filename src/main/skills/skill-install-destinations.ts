@@ -1,5 +1,5 @@
 import { lstat, realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { isAbsolute, parse, relative, resolve } from 'node:path'
 import type { SkillInstallRequest } from '../../shared/skill-install-contract'
 
 type WorkspaceIdentity = {
@@ -11,8 +11,6 @@ type WorkspaceIdentity = {
 export type SkillInstallDestinationAuthority = {
   environmentId: string
   homeDirectory: string
-  /** Relay-only: caller path is untrusted, so the workspace must sit strictly inside home. */
-  mustContainInHome?: boolean
   resolveWorktree(id: string): Promise<WorkspaceIdentity | null>
   resolveFolderWorkspace(id: string): Promise<WorkspaceIdentity | null>
   resolveWsl?(distro: string): Promise<{ homeDirectory: string } | null>
@@ -34,17 +32,21 @@ async function requireDirectory(path: string, category: string): Promise<string>
   return realpath(path)
 }
 
-function requireContained(root: string, path: string): void {
-  const resolvedRoot = resolve(root)
-  const resolvedPath = resolve(path)
-  if (resolvedRoot === resolvedPath) {
+function rejectDegenerateWorkspace(home: string, workspace: string): void {
+  const resolvedHome = resolve(home)
+  const resolvedWorkspace = resolve(workspace)
+  if (resolvedHome === resolvedWorkspace) {
     throw new Error('skill-install-destination-escape')
   }
-  const child = relative(resolvedRoot, resolvedPath)
+  if (resolvedWorkspace === parse(resolvedWorkspace).root) {
+    throw new Error('skill-install-destination-escape')
+  }
+  const fromWorkspaceToHome = relative(resolvedWorkspace, resolvedHome)
   if (
-    child === '..' ||
-    child.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
-    isAbsolute(child)
+    fromWorkspaceToHome !== '' &&
+    fromWorkspaceToHome !== '..' &&
+    !fromWorkspaceToHome.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) &&
+    !isAbsolute(fromWorkspaceToHome)
   ) {
     throw new Error('skill-install-destination-escape')
   }
@@ -98,9 +100,7 @@ export async function resolveSkillInstallDestination(
     workspace.path,
     'skill-install-workspace-unavailable'
   )
-  if (authority.mustContainInHome) {
-    requireContained(homeDirectory, workspaceDirectory)
-  }
+  rejectDegenerateWorkspace(homeDirectory, workspaceDirectory)
   return {
     scope: 'workspace',
     homeDirectory,
