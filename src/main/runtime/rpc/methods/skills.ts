@@ -101,12 +101,14 @@ export const SKILL_METHODS = [
   defineMethod({
     name: 'skills.delete',
     params: SkillDeleteRequestSchema,
-    handler: async (params, { runtime }) =>
-      runSkillDeleteRequest(
+    handler: async (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Deleting skills')
+      return runSkillDeleteRequest(
         params,
         resolveDiscoveryTarget(params.target ?? {}, runtime),
         skillDeleteDependencies(runtime)
       )
+    }
   }),
   defineMethod({
     name: 'skills.share',
@@ -159,9 +161,12 @@ export const SKILL_METHODS = [
   defineMethod({
     name: 'skills.cancelInstall',
     params: SkillsCancelInstallParams,
-    handler: (params, { runtime }) => ({
-      cancelled: runtime.cancelSharedSkillInstall(params.operationId)
-    })
+    handler: (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Cancelling skill installation')
+      return {
+        cancelled: runtime.cancelSharedSkillInstall(params.operationId)
+      }
+    }
   }),
   defineMethod({
     name: 'skills.getInstallProgress',
@@ -216,6 +221,9 @@ export const SKILL_METHODS = [
   defineMethod({
     name: 'skills.cancelUpload',
     params: SkillUploadCommitRequestSchema,
-    handler: (params, { runtime }) => runtime.cancelSkillUpload(params.uploadId)
+    handler: (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Cancelling skill upload')
+      return runtime.cancelSkillUpload(params.uploadId)
+    }
   })
 ]

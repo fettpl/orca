@@ -416,7 +416,9 @@ describe('skill management RPC', () => {
       'skills.uploadChunk',
       { uploadId: 'upload_1', offset: 0, bytesBase64: '' },
       'appendSkillUploadChunk'
-    ]
+    ],
+    ['skills.cancelInstall', { operationId: 'operation_1' }, 'cancelSharedSkillInstall'],
+    ['skills.cancelUpload', { uploadId: 'upload_1' }, 'cancelSkillUpload']
   ] as const)(
     'rejects paired callers to %s with the unsupported-environment code',
     async (methodName, params, runtimeMethod) => {
@@ -435,4 +437,35 @@ describe('skill management RPC', () => {
       expect(runtimeFn).not.toHaveBeenCalled()
     }
   )
+
+  it('rejects paired callers to skills.delete before host filesystem work', async () => {
+    const listRepos = vi.fn(() => [])
+    const runtime = {
+      listRepos,
+      resolveSkillDiscoveryProviderRoots: vi.fn(async () => ({})),
+      resolveProjectRuntimeForWorktree: vi.fn()
+    }
+    const params = {
+      operationId: 'operation_1',
+      skills: [
+        {
+          id: 'skill_1',
+          directoryPath: '/home/user/.agents/skills/example',
+          skillFilePath: '/home/user/.agents/skills/example/SKILL.md',
+          name: 'example',
+          updatedAt: 1
+        }
+      ]
+    }
+
+    for (const clientKind of ['mobile', 'runtime'] as const) {
+      await expect(
+        method('skills.delete').handler(params, {
+          runtime,
+          clientKind
+        } as unknown as RpcContext)
+      ).rejects.toMatchObject({ code: 'agent_skill_sharing_unsupported_environment' })
+    }
+    expect(listRepos).not.toHaveBeenCalled()
+  })
 })
