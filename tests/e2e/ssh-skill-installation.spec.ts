@@ -138,10 +138,10 @@ test.describe('SSH skill installation', () => {
         execDockerSshRelayTargetCommand(target, `test ! -e ${REMOTE_FOLDER}/.agents && echo absent`)
       ).toBe('absent')
 
-      // Grant is minted before destination resolution, so the refused folder still counts.
+      // Grant is minted in IPC before destination resolution; the refused folder still POSTs.
       expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(3)
       expect(fixture.requests.filter((request) => request.path === '/package.tar.gz')).toHaveLength(
-        3
+        2
       )
       expect(
         fixture.requests
