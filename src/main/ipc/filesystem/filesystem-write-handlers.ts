@@ -4,11 +4,11 @@ import type { SshMutationExpectation } from '../../../shared/ssh-types'
 import { assertSshMutationExpectation } from '../../ssh/ssh-connection-generation'
 import { requireSshFilesystemProvider } from '../../providers/ssh-filesystem-dispatch'
 import { tryDeleteWslUncPath } from '../../wsl-unc-delete'
+import { resolveAuthorizedPath } from '../filesystem-auth'
 import {
   grantExternalDirectoryFromRenderer,
-  grantExternalFileFromRenderer,
-  resolveAuthorizedPath
-} from '../filesystem-auth'
+  grantExternalFileFromRenderer
+} from './filesystem-renderer-grants'
 import { isENOENT } from '../filesystem-path-containment'
 import { registerFilesystemMutationHandlers } from '../filesystem-mutations'
 import type { FilesystemHandlerContext } from './filesystem-handler-context'

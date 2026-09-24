@@ -17,11 +17,11 @@ vi.mock('node:os', async (importOriginal) => {
   }
 })
 
+import { isPathAllowed } from '../filesystem-auth'
 import {
   grantExternalDirectoryFromRenderer,
-  grantExternalFileFromRenderer,
-  isPathAllowed
-} from '../filesystem-auth'
+  grantExternalFileFromRenderer
+} from './filesystem-renderer-grants'
 
 function emptyStore(): Store {
   return {
@@ -171,9 +171,10 @@ describe('renderer external path grants', () => {
     } catch {
       try {
         await symlink(dirname(home), parentLink, 'junction')
-      } catch {
-        // Windows without symlink privilege cannot construct this parent-alias bypass.
-        return
+      } catch (error) {
+        throw new Error(
+          `unable to create parent-alias symlink for grant bypass coverage: ${String(error)}`
+        )
       }
     }
     const aliasedHome = join(parentLink, basename(home))
