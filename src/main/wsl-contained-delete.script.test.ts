@@ -75,6 +75,22 @@ describe.skipIf(process.platform !== 'linux')('WSL contained-delete script under
     expect(existsSync(survivor)).toBe(true)
   })
 
+  it('deletes an approved regular-file leaf', async () => {
+    const { approvedRoot, outsideRoot } = makeFixture()
+    const leaf = join(approvedRoot, 'session.json')
+    writeFileSync(leaf, '{}')
+    const survivor = join(outsideRoot, 'survivor')
+    writeFileSync(survivor, 'keep')
+
+    const result = await runContainedDelete(leaf, approvedRoot, false)
+
+    expect(result.timedOut).toBe(false)
+    expect(result.code).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(existsSync(leaf)).toBe(false)
+    expect(existsSync(survivor)).toBe(true)
+  })
+
   it('rejects a file when the expected kind is directory', async () => {
     const { approvedRoot } = makeFixture()
     const leaf = join(approvedRoot, 'a', 'leaf')
