@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -10,7 +10,7 @@ describe('RuntimeServerEnvironmentCommands.browseDirectory', () => {
 
   it('lists the home directory', async () => {
     const result = await commands.browseDirectory('~')
-    expect(result.resolvedPath).toBe(resolve(homedir()))
+    expect(result.resolvedPath).toBe(await realpath(homedir()))
     expect(result.pathFlavor).toBe(process.platform === 'win32' ? 'win32' : 'posix')
     expect(Array.isArray(result.entries)).toBe(true)
   })
@@ -24,7 +24,7 @@ describe('RuntimeServerEnvironmentCommands.browseDirectory', () => {
 
       const result = await commands.browseDirectory(tempRoot)
 
-      expect(result.resolvedPath).toBe(resolve(tempRoot))
+      expect(result.resolvedPath).toBe(await realpath(tempRoot))
       expect(result.entries).toEqual([
         { name: 'alpha', isDirectory: true, isSymlink: false },
         { name: 'zeta', isDirectory: true, isSymlink: false },

@@ -91,12 +91,14 @@ export const SKILL_METHODS = [
   defineMethod({
     name: 'skills.previewDelete',
     params: SkillDeleteRequestSchema,
-    handler: async (params, { runtime }) =>
-      previewSkillDeleteRequest(
+    handler: async (params, { runtime, clientKind }) => {
+      rejectPairedSkillMutation(clientKind, 'Deleting skills')
+      return previewSkillDeleteRequest(
         params,
         resolveDiscoveryTarget(params.target ?? {}, runtime),
         skillDeleteDependencies(runtime)
       )
+    }
   }),
   defineMethod({
     name: 'skills.delete',

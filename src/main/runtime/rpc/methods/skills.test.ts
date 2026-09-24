@@ -438,34 +438,37 @@ describe('skill management RPC', () => {
     }
   )
 
-  it('rejects paired callers to skills.delete before host filesystem work', async () => {
-    const listRepos = vi.fn(() => [])
-    const runtime = {
-      listRepos,
-      resolveSkillDiscoveryProviderRoots: vi.fn(async () => ({})),
-      resolveProjectRuntimeForWorktree: vi.fn()
-    }
-    const params = {
-      operationId: 'operation_1',
-      skills: [
-        {
-          id: 'skill_1',
-          directoryPath: '/home/user/.agents/skills/example',
-          skillFilePath: '/home/user/.agents/skills/example/SKILL.md',
-          name: 'example',
-          updatedAt: 1
-        }
-      ]
-    }
+  it.each(['skills.previewDelete', 'skills.delete'] as const)(
+    'rejects paired callers to %s before host filesystem work',
+    async (methodName) => {
+      const listRepos = vi.fn(() => [])
+      const runtime = {
+        listRepos,
+        resolveSkillDiscoveryProviderRoots: vi.fn(async () => ({})),
+        resolveProjectRuntimeForWorktree: vi.fn()
+      }
+      const params = {
+        operationId: 'operation_1',
+        skills: [
+          {
+            id: 'skill_1',
+            directoryPath: '/home/user/.agents/skills/example',
+            skillFilePath: '/home/user/.agents/skills/example/SKILL.md',
+            name: 'example',
+            updatedAt: 1
+          }
+        ]
+      }
 
-    for (const clientKind of ['mobile', 'runtime'] as const) {
-      await expect(
-        method('skills.delete').handler(params, {
-          runtime,
-          clientKind
-        } as unknown as RpcContext)
-      ).rejects.toMatchObject({ code: 'agent_skill_sharing_unsupported_environment' })
+      for (const clientKind of ['mobile', 'runtime'] as const) {
+        await expect(
+          method(methodName).handler(params, {
+            runtime,
+            clientKind
+          } as unknown as RpcContext)
+        ).rejects.toMatchObject({ code: 'agent_skill_sharing_unsupported_environment' })
+      }
+      expect(listRepos).not.toHaveBeenCalled()
     }
-    expect(listRepos).not.toHaveBeenCalled()
-  })
+  )
 })
