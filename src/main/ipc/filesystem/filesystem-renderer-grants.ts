@@ -2,6 +2,7 @@ import { isAbsolute, parse, relative, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { realpathSync } from 'node:fs'
 import { lstat, realpath, stat } from 'node:fs/promises'
+import { isPathInsideOrEqual } from '../../../shared/cross-platform-path'
 import { isENOENT } from '../filesystem-path-containment'
 import { PATH_ACCESS_DENIED_MESSAGE, recordAuthorizedExternalGrant } from '../filesystem-auth'
 
@@ -31,7 +32,11 @@ function isDangerousExternalGrantRoot(targetPath: string): boolean {
   if (isSameResolvedPath(canonicalTarget, resolve(parse(canonicalTarget).root))) {
     return true
   }
-  return isSameResolvedPath(canonicalTarget, canonicalGrantPath(homedir()))
+  const home = canonicalGrantPath(homedir())
+  if (isSameResolvedPath(canonicalTarget, home)) {
+    return true
+  }
+  return isPathInsideOrEqual(canonicalTarget, home)
 }
 
 function resolveRendererGrantPath(targetPath: string): string {

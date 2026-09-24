@@ -75,6 +75,14 @@ describe('renderer external path grants', () => {
     expect(isPathAllowed(home, emptyStore())).toBe(false)
   })
 
+  it('rejects granting an ancestor of the home directory and leaves home denied', async () => {
+    const home = homedir()
+    const ancestor = dirname(home)
+    await expect(grantExternalDirectoryFromRenderer(ancestor)).rejects.toThrow()
+    expect(isPathAllowed(home, emptyStore())).toBe(false)
+    expect(isPathAllowed(ancestor, emptyStore())).toBe(false)
+  })
+
   it('rejects granting the volume root', async () => {
     const volumeRoot = parse(process.cwd()).root
     await expect(grantExternalFileFromRenderer(volumeRoot)).rejects.toThrow()
