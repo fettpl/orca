@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import {
   DEFAULT_REPO_BADGE_COLOR,
@@ -59,7 +60,7 @@ describe('OrcaRuntimeService', () => {
 
       const result = await runtime.browseServerDir(tempRoot)
 
-      expect(result.resolvedPath).toBe(tempRoot)
+      expect(result.resolvedPath).toBe(await realpath(tempRoot))
       expect(result.pathFlavor).toBe(process.platform === 'win32' ? 'win32' : 'posix')
       expect(result.entries).toEqual([
         { name: 'alpha', isDirectory: true, isSymlink: false },
