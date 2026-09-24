@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import type * as Os from 'node:os'
 import { basename, dirname, join, parse, resolve } from 'node:path'
@@ -134,6 +134,27 @@ describe('renderer external path grants', () => {
     const store = emptyStore()
     expect(isPathAllowed(dir, store)).toBe(true)
     expect(isPathAllowed(nested, store)).toBe(true)
+  })
+
+  it('authorizes the canonical path of a directory reached through a symlinked parent', async () => {
+    const realRoot = await makeTempDir()
+    const aliasRoot = await makeTempDir()
+    const parentLink = join(aliasRoot, 'parent')
+    try {
+      await symlink(realRoot, parentLink, 'dir')
+    } catch {
+      await symlink(realRoot, parentLink, 'junction')
+    }
+    const realDir = join(realRoot, 'leaf')
+    await mkdir(realDir)
+    const grantedViaAlias = join(parentLink, 'leaf')
+
+    await grantExternalDirectoryFromRenderer(grantedViaAlias)
+
+    const store = emptyStore()
+    const canonical = resolve(await realpath(grantedViaAlias))
+    expect(isPathAllowed(canonical, store)).toBe(true)
+    expect(isPathAllowed(join(canonical, 'nested.txt'), store)).toBe(true)
   })
 
   it('rejects a case-variant home directory and does not authorize it', async () => {

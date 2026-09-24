@@ -120,12 +120,19 @@ export async function grantExternalDirectoryFromRenderer(targetPath: string): Pr
   } catch {
     return denyRendererGrant()
   }
+  let canonicalTarget = directoryPath
+  try {
+    canonicalTarget = resolve(await realpath(resolvedTarget))
+  } catch {
+    return denyRendererGrant()
+  }
   if (
     !directoryStats.isDirectory() ||
     isDangerousExternalGrantRoot(resolvedTarget) ||
-    isDangerousExternalGrantRoot(directoryPath)
+    isDangerousExternalGrantRoot(directoryPath) ||
+    isDangerousExternalGrantRoot(canonicalTarget)
   ) {
     return denyRendererGrant()
   }
-  recordAuthorizedExternalGrant(resolvedTarget, directoryPath)
+  recordAuthorizedExternalGrant(resolvedTarget, canonicalTarget)
 }
