@@ -214,7 +214,10 @@ async function runJourney(args: {
   }
 
   if (clientMethods.has('git.stage')) {
-    await run('git.stage')
+    const stageReply = await run('git.stage')
+    if (stageReply.error?.code === 'method_not_found' && mutation === 'git.commit') {
+      git(args.repo, ['add', '--', TRACKED_FILE])
+    }
   } else if (mutation === 'git.commit') {
     git(args.repo, ['add', '--', TRACKED_FILE])
   }
